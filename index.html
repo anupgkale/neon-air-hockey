@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Welcome to Ojas Kale's - Arcade Neon Air Hockey</title>
+    <title>Ojas Kale's Arcade Neon Air Hockey</title>
     <!-- Dynamic Favicon Placeholder Link -->
     <link id="dynamic-favicon" rel="icon" type="image/png" href="">
     <style>
@@ -193,13 +193,13 @@
 
         <!-- Main Menu Overlay -->
         <div id="main-menu" class="overlay">
-            <h3>Ojas Kale presents</h3>
+            <h3>Ojas Kale Presents</h3>
             <h1>Neon Air Hockey</h1>
             <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 15px;">Local Table Battle</p>
             
             <div class="instructions-panel">
                 <h3>Game Controls</h3>
-                <p style="color: #ff007f; font-weight: bold; margin-bottom: 8px;">💀 Warning: Level 5 upgraded with Predictive Trajectory Calculations.</p>
+                <p style="color: #ff007f; font-weight: bold; margin-bottom: 8px;">💀 Level 5 upgraded with Predictive Trajectory Calculations.</p>
                 <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile: Drag your finger anywhere on your half!</p>
                 <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">💻 Desktop 1P: Move your MOUSE.</p>
             </div>
@@ -223,7 +223,7 @@
         <div id="game-over" class="overlay hidden">
             <h1 id="winner-title">PLAYER 1 WINS</h1>
             <h2 id="final-score">7 - 4</h2>
-            <h4>OJAS KALE SAYS</h4>
+            <h3>Ojas recommends you to</h3>
             <br />
             <button class="menu-btn" id="btn-rematch">Play Another Round?</button>
         </div>
@@ -249,7 +249,7 @@
 
         let gameState = 'MENU'; 
         let gameMode = '1P';     
-        let aiDifficulty = 5; // Default to Level 5 now   
+        let aiDifficulty = 5; 
         let player1Score = 0;
         let player2Score = 0;
         const WINNING_SCORE = 7;
@@ -326,11 +326,19 @@
                 this.clampBoundaries();
             }
 
-            moveTo(targetX, targetY) {
-                this.vx = targetX - this.x;
-                this.vy = targetY - this.y;
-                this.x = targetX;
-                this.y = targetY;
+            // Upgraded tracking physics loop preventing frame-skipping velocity spikes
+            moveTo(targetX, targetY, isDirect) {
+                if (isDirect) {
+                    // Safe linear smoothing if finger was just freshly placed down
+                    this.vx = (targetX - this.x) * 0.3;
+                    this.vy = (targetY - this.y) * 0.3;
+                } else {
+                    // Standard frame-by-frame velocity tracing
+                    this.vx = targetX - this.x;
+                    this.vy = targetY - this.y;
+                }
+                this.x += this.vx;
+                this.y += this.vy;
                 this.clampBoundaries();
             }
 
@@ -362,7 +370,7 @@
 
         class Puck {
             constructor(x, y, radius, color) {
-                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 18; // Increased max speed for intense play
+                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 18; 
             }
 
             reset(direction) { this.x = canvas.width / 2; this.y = canvas.height / 2; this.vx = 0; this.vy = direction * 3; }
@@ -409,7 +417,7 @@
         const player2 = new Mallet(canvas.width / 2, 80, 22, '#ff007f', true);
         const puck = new Puck(canvas.width / 2, canvas.height / 2, 14, '#fff');
 
-        // --- SECURE MULTI-TOUCH TRACKING SYSTEM ---
+        // --- MULTI-TOUCH COORD TRANSLATION ENGINE ---
         function getCanvasCoordinates(touch) {
             const rect = canvas.getBoundingClientRect();
             return {
@@ -459,17 +467,17 @@
                 const rect = canvas.getBoundingClientRect();
                 p1TargetX = (e.clientX - rect.left) * (canvas.width / rect.width);
                 p1TargetY = (e.clientY - rect.top) * (canvas.height / rect.height);
-                p1TouchId = "mouse";
+                if(p1TouchId === null) p1TouchId = "mouse";
             }
         });
 
-        // --- UPGRADED PREDICTIVE AI LOGIC ENGINE ---
+        // --- PREDICTIVE AI LOGIC ENGINE ---
         const aiProfiles = {
             1: { maxSpeed: 2.2, trackingError: 0.28, delayChance: 0.15, predictive: false },
             2: { maxSpeed: 3.5, trackingError: 0.18, delayChance: 0.10, predictive: false },
             3: { maxSpeed: 4.8, trackingError: 0.10, delayChance: 0.05, predictive: false },
             4: { maxSpeed: 6.8, trackingError: 0.04, delayChance: 0.01, predictive: false },
-            5: { maxSpeed: 14.0, trackingError: 0.00, delayChance: 0.00, predictive: true } // Level 5 Unleashed
+            5: { maxSpeed: 14.0, trackingError: 0.00, delayChance: 0.00, predictive: true }
         };
 
         let lastAIX = player2.x; let lastAIY = player2.y; let stuckFramesCounter = 0; let isAIStuckBackingOff = false; let backOffTimer = 0;
@@ -496,58 +504,39 @@
             let targetX = canvas.width / 2;
             let targetY = 100;
 
-            // --- LEVEL 5 PREDICTIVE TRAJECTORY MATHEMATICS ---
             if (profile.predictive && (puck.y < canvas.height * 0.7 || puck.vy < 0)) {
-                // Look-ahead calculation simulation (Look 10 frames into the future)
                 let futureFrames = 10;
                 let predictedX = puck.x + (puck.vx * futureFrames);
                 let predictedY = puck.y + (puck.vy * futureFrames);
-
-                // Math boundary verification: account for wall bounce reflections in prediction
                 const leftBound = rinkPadding + puck.radius;
                 const rightBound = canvas.width - rinkPadding - puck.radius;
 
                 while (predictedX < leftBound || predictedX > rightBound) {
-                    if (predictedX < leftBound) {
-                        predictedX = leftBound + (leftBound - predictedX);
-                    }
-                    if (predictedX > rightBound) {
-                        predictedX = rightBound - (predictedX - rightBound);
-                    }
+                    if (predictedX < leftBound) predictedX = leftBound + (leftBound - predictedX);
+                    if (predictedX > rightBound) predictedX = rightBound - (predictedX - rightBound);
                 }
-
                 targetX = predictedX;
 
-                // STRATEGY EMULATION: Attack state vs Defensive state
                 if (puck.y < canvas.height / 2 && Math.abs(puck.vx) < 5 && puck.y > 150) {
-                    // Puck is vulnerable in AI territory: Charge aggressively to smash it
                     targetY = puck.y;
                 } else {
-                    // Guard goal radius space line defensively
                     targetY = Math.min(predictedY, canvas.height / 2 - 40);
                     if (targetY < 80) targetY = 80;
                 }
             } 
-            // Standard tracking algorithms for Levels 1-4
             else if (puck.y < canvas.height / 2 || puck.vy < 0) {
                 let noise = (Math.random() - 0.5) * 120 * profile.trackingError;
-                targetX = puck.x + noise;
-                targetY = puck.y - (puck.radius * 0.5);
+                targetX = puck.x + noise; targetY = puck.y - (puck.radius * 0.5);
             } else {
-                targetX = canvas.width / 2;
-                targetY = 100;
+                targetX = canvas.width / 2; targetY = 100;
             }
 
-            let dx = targetX - player2.x;
-            let dy = targetY - player2.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
+            let dx = targetX - player2.x; let dy = targetY - player2.y; let distance = Math.sqrt(dx * dx + dy * dy);
             let vx = 0; let vy = 0;
 
             if (distance > 2) {
-                // Level 5 scales speed curve adaptively based on distance urgency
                 let speedToUse = profile.predictive ? Math.min(profile.maxSpeed, distance * 0.6) : Math.min(profile.maxSpeed, distance * 0.2);
-                vx = (dx / distance) * speedToUse;
-                vy = (dy / distance) * speedToUse;
+                vx = (dx / distance) * speedToUse; vy = (dy / distance) * speedToUse;
             }
             return { vx, vy };
         }
@@ -566,8 +555,7 @@
                 let speedAlongNormal = relativeVx * nx + relativeVy * ny;
 
                 if (speedAlongNormal < 0) {
-                    const restitution = 1.15; // Raised kinetic push force slightly
-                    let impulseScalar = -(1 + restitution) * speedAlongNormal;
+                    const restitution = 1.15; let impulseScalar = -(1 + restitution) * speedAlongNormal;
                     puck.vx += nx * impulseScalar; puck.vy += ny * impulseScalar;
                     puck.vx += mallet.vx * 0.4; puck.vy += mallet.vy * 0.4;
                     playSoundMallet();
@@ -614,8 +602,11 @@
             drawRink();
 
             if (gameState === 'PLAYING') {
+                // --- PLAYER 1 TRACKING EXECUTION ---
                 if (p1TouchId !== null) {
-                    player1.moveTo(p1TargetX, p1TargetY);
+                    // If p1TouchId is true but it's tracking "mouse", no direct touch dampening needed
+                    let isFirstTapFrame = (p1TouchId !== "mouse" && player1.vx === 0 && player1.vy === 0);
+                    player1.moveTo(p1TargetX, p1TargetY, isFirstTapFrame);
                 } else if (gameMode === '2P') {
                     let p1VX = 0; let p1VY = 0;
                     if (keys['ArrowUp'])    p1VY = -player1.speed;
@@ -623,11 +614,16 @@
                     if (keys['ArrowLeft'])  p1VX = -player1.speed;
                     if (keys['ArrowRight']) p1VX = player1.speed;
                     player1.update(p1VX, p1VY);
+                } else {
+                    // Friction drag decay deceleration if finger lifted in desktop emulation
+                    player1.update(player1.vx * 0.8, player1.vy * 0.8);
                 }
 
+                // --- PLAYER 2 TRACKING EXECUTION ---
                 if (gameMode === '2P') {
                     if (p2TouchId !== null) {
-                        player2.moveTo(p2TargetX, p2TargetY);
+                        let isFirstTapFrame = (player2.vx === 0 && player2.vy === 0);
+                        player2.moveTo(p2TargetX, p2TargetY, isFirstTapFrame);
                     } else {
                         let p2VX = 0; let p2VY = 0;
                         if (keys['w'] || keys['W']) p2VY = -player2.speed;
@@ -646,7 +642,10 @@
                 handleMalletPuckCollision(player2);
             }
 
-            player1.draw(); player2.draw();
+            // FIXED: Render mallets constantly across ALL states
+            player1.draw(); 
+            player2.draw();
+            
             if (gameState !== 'GAMEOVER') puck.draw();
             updateAndDrawParticles();
             requestAnimationFrame(gameLoop);
