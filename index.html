@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arcade Neon Air Hockey</title>
+    <title>Ojas Kale's - Arcade Neon Air Hockey</title>
+    <!-- Dynamic Favicon Placeholder Link -->
     <link id="dynamic-favicon" rel="icon" type="image/png" href="">
     <style>
         * {
@@ -12,14 +13,14 @@
             padding: 0;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none; /* Prevents mobile phone from bouncing/scrolling while playing */
+            touch-action: none; /* Prevents mobile web page zooming/bouncing */
         }
         body {
             background-color: #0d0d13;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #fff;
             min-height: 100vh;
-            min-height: -webkit-fill-available; /* Fix for mobile Safari address bars */
+            min-height: -webkit-fill-available;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,12 +30,11 @@
 
         #game-container {
             position: relative;
-            /* The container now adapts dynamically to the screen size */
             width: 100%;
             max-width: 500px;
             height: 100%;
             max-height: 750px;
-            aspect-ratio: 2 / 3; /* Keeps the classic 500x750 air hockey proportion */
+            aspect-ratio: 2 / 3;
             box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
             border-radius: 10px;
             display: flex;
@@ -64,7 +64,7 @@
             padding: 20px;
             border-radius: 10px;
             z-index: 10;
-            overflow-y: auto; /* Allows menu scrolling on tiny older phones */
+            overflow-y: auto;
         }
 
         .hidden {
@@ -72,7 +72,7 @@
         }
 
         h1 {
-            font-size: calc(1.8rem + 1vw);
+            font-size: calc(1.6rem + 1vw);
             margin-bottom: 5px;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -82,7 +82,7 @@
         }
 
         h2 {
-            font-size: calc(1.3rem + 1vw);
+            font-size: calc(1.2rem + 1vw);
             margin-bottom: 15px;
             color: #ff007f;
             text-shadow: 0 0 15px rgba(255, 0, 127, 0.6);
@@ -189,17 +189,17 @@
 <body>
 
     <div id="game-container">
-        <!-- Master internal logic dimension remains 500x750; browser handles scaling scaling visually -->
         <canvas id="gameCanvas" width="500" height="750"></canvas>
 
         <!-- Main Menu Overlay -->
         <div id="main-menu" class="overlay">
+            <h3>Ojas Kale presents</h3>
             <h1>Neon Air Hockey</h1>
             <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 15px;">Local Table Battle</p>
             
             <div class="instructions-panel">
                 <h3>Game Controls</h3>
-                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile: Drag your finger anywhere on your half of the screen!</p>
+                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile (1P & 2P): Drag your finger on your half of the screen!</p>
                 <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">💻 Desktop 1P: Move your MOUSE.</p>
                 <p><strong>Desktop 2P (Local Keyboard):</strong></p>
                 <p>• P1 (Bottom): Arrow Keys | P2 (Top): WASD</p>
@@ -217,7 +217,7 @@
             </div>
 
             <button class="menu-btn" id="btn-1p">1 Player (Touch/Mouse)</button>
-            <button class="menu-btn secondary" id="btn-2p">2 Players (Keyboard)</button>
+            <button class="menu-btn secondary" id="btn-2p">2 Players (Touch/Key)</button>
         </div>
 
         <!-- Game Over Overlay -->
@@ -257,9 +257,13 @@
         const goalWidth = 160;
         const goalYOffset = 4;
 
-        // Virtual Coordinate Inputs
-        let virtualInputX = 250;
-        let virtualInputY = 650;
+        // Separate target tracking states for Touch/Mouse operations
+        let p1TargetX = 250; let p1TargetY = 650;
+        let p2TargetX = 250; let p2TargetY = 100;
+        
+        // Track whether active touch commands are currently steering individual players
+        let p1IsTouched = false;
+        let p2IsTouched = false;
 
         // --- AUDIO SYNTHESIS ENGINE ---
         let audioCtx = null;
@@ -312,7 +316,7 @@
         class Mallet {
             constructor(x, y, radius, color, isTop) {
                 this.startX = x; this.startY = y; this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-                this.radius = radius; this.color = color; this.isTop = isTop; this.speed = 7;
+                this.radius = radius; this.color = color; this.isTop = isTop; this.speed = 8;
             }
 
             reset() { this.x = this.startX; this.y = this.startY; this.vx = 0; this.vy = 0; }
@@ -359,7 +363,7 @@
 
         class Puck {
             constructor(x, y, radius, color) {
-                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 15;
+                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 16;
             }
 
             reset(direction) { this.x = canvas.width / 2; this.y = canvas.height / 2; this.vx = 0; this.vy = direction * 3; }
@@ -406,19 +410,38 @@
         const player2 = new Mallet(canvas.width / 2, 80, 22, '#ff007f', true);
         const puck = new Puck(canvas.width / 2, canvas.height / 2, 14, '#fff');
 
-        // --- INPUT NORMALIZATION HELPER ---
-        // Converts a screen space interaction pixel into our internal 500x750 virtual grid coordinate system
-        function handleInteractionInput(clientX, clientY) {
+        // --- MULTI-TOUCH COORD TRANSLATION ENGINE ---
+        function parseAllActiveTouches(event) {
             const rect = canvas.getBoundingClientRect();
-            // Scale factors mapping physical screen dimensions directly onto our virtual grid
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
 
-            virtualInputX = (clientX - rect.left) * scaleX;
-            virtualInputY = (clientY - rect.top) * scaleY;
+            // Reset touch detection states before analyzing active fingers
+            p1IsTouched = false;
+            p2IsTouched = false;
+
+            // Loop over EVERY finger currently pressed against the glass screen
+            for (let i = 0; i < event.touches.length; i++) {
+                let touch = event.touches[i];
+                let tx = (touch.clientX - rect.left) * scaleX;
+                let ty = (touch.clientY - rect.top) * scaleY;
+
+                // Sort finger positions based on court dividers
+                if (ty > canvas.height / 2) {
+                    // Bottom Side touch -> Player 1
+                    p1TargetX = tx;
+                    p1TargetY = ty;
+                    p1IsTouched = true;
+                } else if (gameMode === '2P' && ty <= canvas.height / 2) {
+                    // Top Side touch -> Player 2 (Only active in 2-Player mode)
+                    p2TargetX = tx;
+                    p2TargetY = ty;
+                    p2IsTouched = true;
+                }
+            }
         }
 
-        // --- HARDWARE INPUT EVENT LISTENERS ---
+        // --- HARDWARE INPUT LISTENERS ---
         const keys = {};
         window.addEventListener('keydown', (e) => {
             initAudio(); keys[e.key] = true;
@@ -426,24 +449,19 @@
         });
         window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-        // Mouse Listener
+        // Desktop Mouse Listener
         canvas.addEventListener('mousemove', (e) => {
-            handleInteractionInput(e.clientX, e.clientY);
+            const rect = canvas.getBoundingClientRect();
+            p1TargetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            p1TargetY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            p1IsTouched = true;
         });
 
-        // Responsive Touch Listeners (Mobile & Tablet)
-        canvas.addEventListener('touchstart', (e) => {
-            initAudio();
-            if (e.touches.length > 0) {
-                handleInteractionInput(e.touches[0].clientX, e.touches[0].clientY);
-            }
-        }, { passive: true });
-
-        canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 0) {
-                handleInteractionInput(e.touches[0].clientX, e.touches[0].clientY);
-            }
-        }, { passive: true });
+        // iPhone Multi-Touch Support Event Overrides
+        canvas.addEventListener('touchstart', (e) => { initAudio(); parseAllActiveTouches(e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); parseAllActiveTouches(e); }, { passive: false });
+        canvas.addEventListener('touchend', (e) => { parseAllActiveTouches(e); }, { passive: false });
+        canvas.addEventListener('touchcancel', (e) => { parseAllActiveTouches(e); }, { passive: false });
 
         // --- AI LOGIC ENGINE ---
         const aiProfiles = {
@@ -528,7 +546,9 @@
         function resetGameSession() {
             player1Score = 0; player2Score = 0; particles = []; stuckFramesCounter = 0; isAIStuckBackingOff = false;
             player1.reset(); player2.reset(); puck.reset(Math.random() > 0.5 ? 1 : -1);
-            virtualInputX = canvas.width / 2; virtualInputY = canvas.height - 80;
+            p1TargetX = canvas.width / 2; p1TargetY = canvas.height - 80;
+            p2TargetX = canvas.width / 2; p2TargetY = 80;
+            p1IsTouched = false; p2IsTouched = false;
         }
 
         function drawRink() {
@@ -549,10 +569,11 @@
             drawRink();
 
             if (gameState === 'PLAYING') {
-                if (gameMode === '1P') {
-                    // Touch screen or Mouse pointer mapping coordinates
-                    player1.moveTo(virtualInputX, virtualInputY);
+                // --- PLAYER 1 UPDATES (BOTTOM PADDLE) ---
+                if (p1IsTouched || gameMode === '1P') {
+                    player1.moveTo(p1TargetX, p1TargetY);
                 } else {
+                    // Fallback to desktop keyboard inputs if screen isn't being touched
                     let p1VX = 0; let p1VY = 0;
                     if (keys['ArrowUp'])    p1VY = -player1.speed;
                     if (keys['ArrowDown'])  p1VY = player1.speed;
@@ -561,17 +582,24 @@
                     player1.update(p1VX, p1VY);
                 }
 
-                let p2VX = 0; let p2VY = 0;
+                // --- PLAYER 2 UPDATES (TOP PADDLE) ---
                 if (gameMode === '2P') {
-                    if (keys['w'] || keys['W']) p2VY = -player2.speed;
-                    if (keys['s'] || keys['S']) p2VY = player2.speed;
-                    if (keys['a'] || keys['A']) p2VX = -player2.speed;
-                    if (keys['d'] || keys['D']) p2VX = player2.speed;
+                    if (p2IsTouched) {
+                        player2.moveTo(p2TargetX, p2TargetY);
+                    } else {
+                        // Fallback to desktop keyboard WASD inputs
+                        let p2VX = 0; let p2VY = 0;
+                        if (keys['w'] || keys['W']) p2VY = -player2.speed;
+                        if (keys['s'] || keys['S']) p2VY = player2.speed;
+                        if (keys['a'] || keys['A']) p2VX = -player2.speed;
+                        if (keys['d'] || keys['D']) p2VX = player2.speed;
+                        player2.update(p2VX, p2VY);
+                    }
                 } else {
+                    // Compute automated AI tracking vectors in 1-Player mode
                     let aiMove = calculateAILogic();
-                    p2VX = aiMove.vx; p2VY = aiMove.vy;
+                    player2.update(aiMove.vx, aiMove.vy);
                 }
-                player2.update(p2VX, p2VY);
 
                 puck.update();
                 handleMalletPuckCollision(player1);
