@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ojas Kale's - Arcade Neon Air Hockey</title>
+    <title>Welcome to Ojas Kale's - Arcade Neon Air Hockey</title>
     <!-- Dynamic Favicon Placeholder Link -->
     <link id="dynamic-favicon" rel="icon" type="image/png" href="">
     <style>
@@ -13,7 +13,7 @@
             padding: 0;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none; /* Prevents mobile web page zooming/bouncing */
+            touch-action: none;
         }
         body {
             background-color: #0d0d13;
@@ -199,10 +199,9 @@
             
             <div class="instructions-panel">
                 <h3>Game Controls</h3>
-                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile (1P & 2P): Drag your finger on your half of the screen!</p>
+                <p style="color: #ff007f; font-weight: bold; margin-bottom: 8px;">💀 Warning: Level 5 upgraded with Predictive Trajectory Calculations.</p>
+                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile: Drag your finger anywhere on your half!</p>
                 <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">💻 Desktop 1P: Move your MOUSE.</p>
-                <p><strong>Desktop 2P (Local Keyboard):</strong></p>
-                <p>• P1 (Bottom): Arrow Keys | P2 (Top): WASD</p>
             </div>
 
             <div class="difficulty-container">
@@ -210,9 +209,9 @@
                 <div class="difficulty-selector">
                     <button class="diff-btn" data-level="1">1</button>
                     <button class="diff-btn" data-level="2">2</button>
-                    <button class="diff-btn active" data-level="3">3</button>
+                    <button class="diff-btn" data-level="3">3</button>
                     <button class="diff-btn" data-level="4">4</button>
-                    <button class="diff-btn" data-level="5">5</button>
+                    <button class="diff-btn active" data-level="5">5</button>
                 </div>
             </div>
 
@@ -224,6 +223,7 @@
         <div id="game-over" class="overlay hidden">
             <h1 id="winner-title">PLAYER 1 WINS</h1>
             <h2 id="final-score">7 - 4</h2>
+            <h3 id="final-score">OJAS KALE SAYS</h3>
             <button class="menu-btn" id="btn-rematch">Play Another Round?</button>
         </div>
     </div>
@@ -248,7 +248,7 @@
 
         let gameState = 'MENU'; 
         let gameMode = '1P';     
-        let aiDifficulty = 3;   
+        let aiDifficulty = 5; // Default to Level 5 now   
         let player1Score = 0;
         let player2Score = 0;
         const WINNING_SCORE = 7;
@@ -257,13 +257,11 @@
         const goalWidth = 160;
         const goalYOffset = 4;
 
-        // Separate target tracking states for Touch/Mouse operations
         let p1TargetX = 250; let p1TargetY = 650;
         let p2TargetX = 250; let p2TargetY = 100;
         
-        // Track whether active touch commands are currently steering individual players
-        let p1IsTouched = false;
-        let p2IsTouched = false;
+        let p1TouchId = null;
+        let p2TouchId = null;
 
         // --- AUDIO SYNTHESIS ENGINE ---
         let audioCtx = null;
@@ -363,7 +361,7 @@
 
         class Puck {
             constructor(x, y, radius, color) {
-                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 16;
+                this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.color = color; this.friction = 0.992; this.maxSpeed = 18; // Increased max speed for intense play
             }
 
             reset(direction) { this.x = canvas.width / 2; this.y = canvas.height / 2; this.vx = 0; this.vy = direction * 3; }
@@ -410,66 +408,67 @@
         const player2 = new Mallet(canvas.width / 2, 80, 22, '#ff007f', true);
         const puck = new Puck(canvas.width / 2, canvas.height / 2, 14, '#fff');
 
-        // --- MULTI-TOUCH COORD TRANSLATION ENGINE ---
-        function parseAllActiveTouches(event) {
+        // --- SECURE MULTI-TOUCH TRACKING SYSTEM ---
+        function getCanvasCoordinates(touch) {
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-
-            // Reset touch detection states before analyzing active fingers
-            p1IsTouched = false;
-            p2IsTouched = false;
-
-            // Loop over EVERY finger currently pressed against the glass screen
-            for (let i = 0; i < event.touches.length; i++) {
-                let touch = event.touches[i];
-                let tx = (touch.clientX - rect.left) * scaleX;
-                let ty = (touch.clientY - rect.top) * scaleY;
-
-                // Sort finger positions based on court dividers
-                if (ty > canvas.height / 2) {
-                    // Bottom Side touch -> Player 1
-                    p1TargetX = tx;
-                    p1TargetY = ty;
-                    p1IsTouched = true;
-                } else if (gameMode === '2P' && ty <= canvas.height / 2) {
-                    // Top Side touch -> Player 2 (Only active in 2-Player mode)
-                    p2TargetX = tx;
-                    p2TargetY = ty;
-                    p2IsTouched = true;
-                }
-            }
+            return {
+                x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+                y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+            };
         }
 
-        // --- HARDWARE INPUT LISTENERS ---
-        const keys = {};
-        window.addEventListener('keydown', (e) => {
-            initAudio(); keys[e.key] = true;
-            if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key) && gameState === 'PLAYING') e.preventDefault();
-        });
-        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+        canvas.addEventListener('touchstart', (e) => {
+            initAudio();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let touch = e.changedTouches[i];
+                let coords = getCanvasCoordinates(touch);
+                if (coords.y > canvas.height / 2 && p1TouchId === null) {
+                    p1TouchId = touch.identifier; p1TargetX = coords.x; p1TargetY = coords.y;
+                } else if (gameMode === '2P' && coords.y <= canvas.height / 2 && p2TouchId === null) {
+                    p2TouchId = touch.identifier; p2TargetX = coords.x; p2TargetY = coords.y;
+                }
+            }
+        }, { passive: false });
 
-        // Desktop Mouse Listener
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.touches.length; i++) {
+                let touch = e.touches[i];
+                let coords = getCanvasCoordinates(touch);
+                if (touch.identifier === p1TouchId) {
+                    p1TargetX = coords.x; p1TargetY = coords.y;
+                } else if (touch.identifier === p2TouchId) {
+                    p2TargetX = coords.x; p2TargetY = coords.y;
+                }
+            }
+        }, { passive: false });
+
+        function handleTouchEnd(e) {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let touch = e.changedTouches[i];
+                if (touch.identifier === p1TouchId) p1TouchId = null;
+                else if (touch.identifier === p2TouchId) p2TouchId = null;
+            }
+        }
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
         canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            p1TargetX = (e.clientX - rect.left) * (canvas.width / rect.width);
-            p1TargetY = (e.clientY - rect.top) * (canvas.height / rect.height);
-            p1IsTouched = true;
+            if (gameMode === '1P') {
+                const rect = canvas.getBoundingClientRect();
+                p1TargetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+                p1TargetY = (e.clientY - rect.top) * (canvas.height / rect.height);
+                p1TouchId = "mouse";
+            }
         });
 
-        // iPhone Multi-Touch Support Event Overrides
-        canvas.addEventListener('touchstart', (e) => { initAudio(); parseAllActiveTouches(e); }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); parseAllActiveTouches(e); }, { passive: false });
-        canvas.addEventListener('touchend', (e) => { parseAllActiveTouches(e); }, { passive: false });
-        canvas.addEventListener('touchcancel', (e) => { parseAllActiveTouches(e); }, { passive: false });
-
-        // --- AI LOGIC ENGINE ---
+        // --- UPGRADED PREDICTIVE AI LOGIC ENGINE ---
         const aiProfiles = {
-            1: { maxSpeed: 2.2, trackingError: 0.28, delayChance: 0.15 },
-            2: { maxSpeed: 3.5, trackingError: 0.18, delayChance: 0.10 },
-            3: { maxSpeed: 4.8, trackingError: 0.10, delayChance: 0.05 },
-            4: { maxSpeed: 6.5, trackingError: 0.04, delayChance: 0.01 },
-            5: { maxSpeed: 9.0, trackingError: 0.00, delayChance: 0.00 }
+            1: { maxSpeed: 2.2, trackingError: 0.28, delayChance: 0.15, predictive: false },
+            2: { maxSpeed: 3.5, trackingError: 0.18, delayChance: 0.10, predictive: false },
+            3: { maxSpeed: 4.8, trackingError: 0.10, delayChance: 0.05, predictive: false },
+            4: { maxSpeed: 6.8, trackingError: 0.04, delayChance: 0.01, predictive: false },
+            5: { maxSpeed: 14.0, trackingError: 0.00, delayChance: 0.00, predictive: true } // Level 5 Unleashed
         };
 
         let lastAIX = player2.x; let lastAIY = player2.y; let stuckFramesCounter = 0; let isAIStuckBackingOff = false; let backOffTimer = 0;
@@ -490,20 +489,64 @@
             if (isAIStuckBackingOff) {
                 backOffTimer--; if (backOffTimer <= 0) { isAIStuckBackingOff = false; stuckFramesCounter = 0; }
                 let dx = (canvas.width / 2) - player2.x; let dy = 120 - player2.y; let distance = Math.sqrt(dx * dx + dy * dy);
-                return { vx: (dx / distance) * (profile.maxSpeed * 0.8), vy: (dy / distance) * (profile.maxSpeed * 0.8) };
+                return { vx: (dx / distance) * 5, vy: (dy / distance) * 5 };
             }
 
-            let targetX = canvas.width / 2; let targetY = 100;
-            if (puck.y < canvas.height / 2 || puck.vy < 0) {
-                let noise = (Math.random() - 0.5) * 120 * profile.trackingError;
-                targetX = puck.x + noise; targetY = puck.y - (puck.radius * 0.5);
-            } else { targetX = canvas.width / 2; targetY = 100; }
+            let targetX = canvas.width / 2;
+            let targetY = 100;
 
-            let dx = targetX - player2.x; let dy = targetY - player2.y; let distance = Math.sqrt(dx * dx + dy * dy);
+            // --- LEVEL 5 PREDICTIVE TRAJECTORY MATHEMATICS ---
+            if (profile.predictive && (puck.y < canvas.height * 0.7 || puck.vy < 0)) {
+                // Look-ahead calculation simulation (Look 10 frames into the future)
+                let futureFrames = 10;
+                let predictedX = puck.x + (puck.vx * futureFrames);
+                let predictedY = puck.y + (puck.vy * futureFrames);
+
+                // Math boundary verification: account for wall bounce reflections in prediction
+                const leftBound = rinkPadding + puck.radius;
+                const rightBound = canvas.width - rinkPadding - puck.radius;
+
+                while (predictedX < leftBound || predictedX > rightBound) {
+                    if (predictedX < leftBound) {
+                        predictedX = leftBound + (leftBound - predictedX);
+                    }
+                    if (predictedX > rightBound) {
+                        predictedX = rightBound - (predictedX - rightBound);
+                    }
+                }
+
+                targetX = predictedX;
+
+                // STRATEGY EMULATION: Attack state vs Defensive state
+                if (puck.y < canvas.height / 2 && Math.abs(puck.vx) < 5 && puck.y > 150) {
+                    // Puck is vulnerable in AI territory: Charge aggressively to smash it
+                    targetY = puck.y;
+                } else {
+                    // Guard goal radius space line defensively
+                    targetY = Math.min(predictedY, canvas.height / 2 - 40);
+                    if (targetY < 80) targetY = 80;
+                }
+            } 
+            // Standard tracking algorithms for Levels 1-4
+            else if (puck.y < canvas.height / 2 || puck.vy < 0) {
+                let noise = (Math.random() - 0.5) * 120 * profile.trackingError;
+                targetX = puck.x + noise;
+                targetY = puck.y - (puck.radius * 0.5);
+            } else {
+                targetX = canvas.width / 2;
+                targetY = 100;
+            }
+
+            let dx = targetX - player2.x;
+            let dy = targetY - player2.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
             let vx = 0; let vy = 0;
-            if (distance > 5) {
-                let speedToUse = Math.min(profile.maxSpeed, distance * 0.2);
-                vx = (dx / distance) * speedToUse; vy = (dy / distance) * speedToUse;
+
+            if (distance > 2) {
+                // Level 5 scales speed curve adaptively based on distance urgency
+                let speedToUse = profile.predictive ? Math.min(profile.maxSpeed, distance * 0.6) : Math.min(profile.maxSpeed, distance * 0.2);
+                vx = (dx / distance) * speedToUse;
+                vy = (dy / distance) * speedToUse;
             }
             return { vx, vy };
         }
@@ -522,7 +565,8 @@
                 let speedAlongNormal = relativeVx * nx + relativeVy * ny;
 
                 if (speedAlongNormal < 0) {
-                    const restitution = 1.1; let impulseScalar = -(1 + restitution) * speedAlongNormal;
+                    const restitution = 1.15; // Raised kinetic push force slightly
+                    let impulseScalar = -(1 + restitution) * speedAlongNormal;
                     puck.vx += nx * impulseScalar; puck.vy += ny * impulseScalar;
                     puck.vx += mallet.vx * 0.4; puck.vy += mallet.vy * 0.4;
                     playSoundMallet();
@@ -548,7 +592,7 @@
             player1.reset(); player2.reset(); puck.reset(Math.random() > 0.5 ? 1 : -1);
             p1TargetX = canvas.width / 2; p1TargetY = canvas.height - 80;
             p2TargetX = canvas.width / 2; p2TargetY = 80;
-            p1IsTouched = false; p2IsTouched = false;
+            p1TouchId = null; p2TouchId = null;
         }
 
         function drawRink() {
@@ -569,11 +613,9 @@
             drawRink();
 
             if (gameState === 'PLAYING') {
-                // --- PLAYER 1 UPDATES (BOTTOM PADDLE) ---
-                if (p1IsTouched || gameMode === '1P') {
+                if (p1TouchId !== null) {
                     player1.moveTo(p1TargetX, p1TargetY);
-                } else {
-                    // Fallback to desktop keyboard inputs if screen isn't being touched
+                } else if (gameMode === '2P') {
                     let p1VX = 0; let p1VY = 0;
                     if (keys['ArrowUp'])    p1VY = -player1.speed;
                     if (keys['ArrowDown'])  p1VY = player1.speed;
@@ -582,12 +624,10 @@
                     player1.update(p1VX, p1VY);
                 }
 
-                // --- PLAYER 2 UPDATES (TOP PADDLE) ---
                 if (gameMode === '2P') {
-                    if (p2IsTouched) {
+                    if (p2TouchId !== null) {
                         player2.moveTo(p2TargetX, p2TargetY);
                     } else {
-                        // Fallback to desktop keyboard WASD inputs
                         let p2VX = 0; let p2VY = 0;
                         if (keys['w'] || keys['W']) p2VY = -player2.speed;
                         if (keys['s'] || keys['S']) p2VY = player2.speed;
@@ -596,7 +636,6 @@
                         player2.update(p2VX, p2VY);
                     }
                 } else {
-                    // Compute automated AI tracking vectors in 1-Player mode
                     let aiMove = calculateAILogic();
                     player2.update(aiMove.vx, aiMove.vy);
                 }
