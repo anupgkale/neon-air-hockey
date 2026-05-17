@@ -193,7 +193,7 @@
 
         <!-- Main Menu Overlay -->
         <div id="main-menu" class="overlay">
-            <h3>Ojas Kale Presents</h3>
+            <h1>Ojas Kale Presents</h1>
             <h1>Neon Air Hockey</h1>
             <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 15px;">Local Table Battle</p>
             
@@ -223,7 +223,7 @@
         <div id="game-over" class="overlay hidden">
             <h1 id="winner-title">PLAYER 1 WINS</h1>
             <h2 id="final-score">7 - 4</h2>
-            <h3>Ojas recommends you to</h3>
+            <h3>Ojas Kale Recomends To</h2>
             <br />
             <button class="menu-btn" id="btn-rematch">Play Another Round?</button>
         </div>
@@ -258,11 +258,13 @@
         const goalWidth = 160;
         const goalYOffset = 4;
 
+        // Target coordinates mapped to tracking nodes
         let p1TargetX = 250; let p1TargetY = 650;
         let p2TargetX = 250; let p2TargetY = 100;
-        
-        let p1TouchId = null;
-        let p2TouchId = null;
+
+        // Hardware pointer capture IDs
+        let p1PointerId = null;
+        let p2PointerId = null;
 
         // --- AUDIO SYNTHESIS ENGINE ---
         let audioCtx = null;
@@ -313,12 +315,18 @@
 
         // --- ENTITY CLASSES ---
         class Mallet {
-            constructor(x, y, radius, color, isTop) {
-                this.startX = x; this.startY = y; this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-                this.radius = radius; this.color = color; this.isTop = isTop; this.speed = 8;
+            constructor(startX, startY, radius, color, isTop) {
+                this.startX = startX; this.startY = startY;
+                this.x = startX; this.y = startY;
+                this.vx = 0; this.vy = 0;
+                this.radius = radius; this.color = color; this.isTop = isTop;
+                this.speed = 8;
             }
 
-            reset() { this.x = this.startX; this.y = this.startY; this.vx = 0; this.vy = 0; }
+            reset() {
+                this.x = this.startX; this.y = this.startY;
+                this.vx = 0; this.vy = 0;
+            }
 
             update(targetVX, targetVY) {
                 this.vx = targetVX; this.vy = targetVY;
@@ -326,19 +334,11 @@
                 this.clampBoundaries();
             }
 
-            // Upgraded tracking physics loop preventing frame-skipping velocity spikes
-            moveTo(targetX, targetY, isDirect) {
-                if (isDirect) {
-                    // Safe linear smoothing if finger was just freshly placed down
-                    this.vx = (targetX - this.x) * 0.3;
-                    this.vy = (targetY - this.y) * 0.3;
-                } else {
-                    // Standard frame-by-frame velocity tracing
-                    this.vx = targetX - this.x;
-                    this.vy = targetY - this.y;
-                }
-                this.x += this.vx;
-                this.y += this.vy;
+            trackTo(targetX, targetY) {
+                this.vx = targetX - this.x;
+                this.vy = targetY - this.y;
+                this.x = targetX;
+                this.y = targetY;
                 this.clampBoundaries();
             }
 
@@ -413,63 +413,54 @@
             draw() { ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = this.color; ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
         }
 
-        const player1 = new Mallet(canvas.width / 2, canvas.height - 80, 22, '#00f2fe', false);
-        const player2 = new Mallet(canvas.width / 2, 80, 22, '#ff007f', true);
-        const puck = new Puck(canvas.width / 2, canvas.height / 2, 14, '#fff');
+        // CORRECTED: Instantiating objects using strict canvas metrics matching rendering coordinates
+        const player1 = new Mallet(250, 650, 22, '#00f2fe', false);
+        const player2 = new Mallet(250, 100, 22, '#ff007f', true);
+        const puck = new Puck(250, 375, 14, '#fff');
 
-        // --- MULTI-TOUCH COORD TRANSLATION ENGINE ---
-        function getCanvasCoordinates(touch) {
+        // --- HARDWARE POINTER EVENT ENGINE ---
+        function translatePointerCoords(event) {
             const rect = canvas.getBoundingClientRect();
             return {
-                x: (touch.clientX - rect.left) * (canvas.width / rect.width),
-                y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+                x: (event.clientX - rect.left) * (canvas.width / rect.width),
+                y: (event.clientY - rect.top) * (canvas.height / rect.height)
             };
         }
 
-        canvas.addEventListener('touchstart', (e) => {
+        canvas.addEventListener('pointerdown', (e) => {
             initAudio();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let touch = e.changedTouches[i];
-                let coords = getCanvasCoordinates(touch);
-                if (coords.y > canvas.height / 2 && p1TouchId === null) {
-                    p1TouchId = touch.identifier; p1TargetX = coords.x; p1TargetY = coords.y;
-                } else if (gameMode === '2P' && coords.y <= canvas.height / 2 && p2TouchId === null) {
-                    p2TouchId = touch.identifier; p2TargetX = coords.x; p2TargetY = coords.y;
-                }
-            }
-        }, { passive: false });
+            canvas.setPointerCapture(e.pointerId); 
+            let coords = translatePointerCoords(e);
 
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            for (let i = 0; i < e.touches.length; i++) {
-                let touch = e.touches[i];
-                let coords = getCanvasCoordinates(touch);
-                if (touch.identifier === p1TouchId) {
-                    p1TargetX = coords.x; p1TargetY = coords.y;
-                } else if (touch.identifier === p2TouchId) {
-                    p2TargetX = coords.x; p2TargetY = coords.y;
-                }
-            }
-        }, { passive: false });
-
-        function handleTouchEnd(e) {
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let touch = e.changedTouches[i];
-                if (touch.identifier === p1TouchId) p1TouchId = null;
-                else if (touch.identifier === p2TouchId) p2TouchId = null;
-            }
-        }
-        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-        canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (gameMode === '1P') {
-                const rect = canvas.getBoundingClientRect();
-                p1TargetX = (e.clientX - rect.left) * (canvas.width / rect.width);
-                p1TargetY = (e.clientY - rect.top) * (canvas.height / rect.height);
-                if(p1TouchId === null) p1TouchId = "mouse";
+            if (coords.y > canvas.height / 2 && p1PointerId === null) {
+                p1PointerId = e.pointerId; p1TargetX = coords.x; p1TargetY = coords.y;
+            } else if (gameMode === '2P' && coords.y <= canvas.height / 2 && p2PointerId === null) {
+                p2PointerId = e.pointerId; p2TargetX = coords.x; p2TargetY = coords.y;
             }
         });
+
+        canvas.addEventListener('pointermove', (e) => {
+            let coords = translatePointerCoords(e);
+            if (e.pointerId === p1PointerId) {
+                p1TargetX = coords.x; p1TargetY = coords.y;
+            } else if (e.pointerId === p2PointerId) {
+                p2TargetX = coords.x; p2TargetY = coords.y;
+            }
+        });
+
+        function releasePointer(e) {
+            if (e.pointerId === p1PointerId) p1PointerId = null;
+            if (e.pointerId === p2PointerId) p2PointerId = null;
+        }
+        canvas.addEventListener('pointerup', releasePointer);
+        canvas.addEventListener('pointercancel', releasePointer);
+
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key) && gameState === 'PLAYING') e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
         // --- PREDICTIVE AI LOGIC ENGINE ---
         const aiProfiles = {
@@ -501,15 +492,13 @@
                 return { vx: (dx / distance) * 5, vy: (dy / distance) * 5 };
             }
 
-            let targetX = canvas.width / 2;
-            let targetY = 100;
+            let targetX = canvas.width / 2; let targetY = 100;
 
             if (profile.predictive && (puck.y < canvas.height * 0.7 || puck.vy < 0)) {
                 let futureFrames = 10;
                 let predictedX = puck.x + (puck.vx * futureFrames);
                 let predictedY = puck.y + (puck.vy * futureFrames);
-                const leftBound = rinkPadding + puck.radius;
-                const rightBound = canvas.width - rinkPadding - puck.radius;
+                const leftBound = rinkPadding + puck.radius; const rightBound = canvas.width - rinkBound - puck.radius;
 
                 while (predictedX < leftBound || predictedX > rightBound) {
                     if (predictedX < leftBound) predictedX = leftBound + (leftBound - predictedX);
@@ -579,9 +568,8 @@
         function resetGameSession() {
             player1Score = 0; player2Score = 0; particles = []; stuckFramesCounter = 0; isAIStuckBackingOff = false;
             player1.reset(); player2.reset(); puck.reset(Math.random() > 0.5 ? 1 : -1);
-            p1TargetX = canvas.width / 2; p1TargetY = canvas.height - 80;
-            p2TargetX = canvas.width / 2; p2TargetY = 80;
-            p1TouchId = null; p2TouchId = null;
+            p1TargetX = 250; p1TargetY = 650; p2TargetX = 250; p2TargetY = 100;
+            p1PointerId = null; p2PointerId = null;
         }
 
         function drawRink() {
@@ -602,11 +590,9 @@
             drawRink();
 
             if (gameState === 'PLAYING') {
-                // --- PLAYER 1 TRACKING EXECUTION ---
-                if (p1TouchId !== null) {
-                    // If p1TouchId is true but it's tracking "mouse", no direct touch dampening needed
-                    let isFirstTapFrame = (p1TouchId !== "mouse" && player1.vx === 0 && player1.vy === 0);
-                    player1.moveTo(p1TargetX, p1TargetY, isFirstTapFrame);
+                // --- PLAYER 1 (BOTTOM MALLET) ---
+                if (p1PointerId !== null) {
+                    player1.trackTo(p1TargetX, p1TargetY);
                 } else if (gameMode === '2P') {
                     let p1VX = 0; let p1VY = 0;
                     if (keys['ArrowUp'])    p1VY = -player1.speed;
@@ -615,15 +601,13 @@
                     if (keys['ArrowRight']) p1VX = player1.speed;
                     player1.update(p1VX, p1VY);
                 } else {
-                    // Friction drag decay deceleration if finger lifted in desktop emulation
                     player1.update(player1.vx * 0.8, player1.vy * 0.8);
                 }
 
-                // --- PLAYER 2 TRACKING EXECUTION ---
+                // --- PLAYER 2 (TOP MALLET) ---
                 if (gameMode === '2P') {
-                    if (p2TouchId !== null) {
-                        let isFirstTapFrame = (player2.vx === 0 && player2.vy === 0);
-                        player2.moveTo(p2TargetX, p2TargetY, isFirstTapFrame);
+                    if (p2PointerId !== null) {
+                        player2.trackTo(p2TargetX, p2TargetY);
                     } else {
                         let p2VX = 0; let p2VY = 0;
                         if (keys['w'] || keys['W']) p2VY = -player2.speed;
@@ -642,7 +626,7 @@
                 handleMalletPuckCollision(player2);
             }
 
-            // FIXED: Render mallets constantly across ALL states
+            // Both paddles render on screen continuously
             player1.draw(); 
             player2.draw();
             
