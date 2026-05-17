@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ojas Kale's Arcade Neon Air Hockey</title>
+    <title>Ojas Kale's - Arcade Neon Air Hockey</title>
     <!-- Dynamic Favicon Placeholder Link -->
     <link id="dynamic-favicon" rel="icon" type="image/png" href="">
     <style>
@@ -193,7 +193,7 @@
 
         <!-- Main Menu Overlay -->
         <div id="main-menu" class="overlay">
-            <h1>Ojas Kale Presents</h1>
+            <h3>Ojas Kale Presents</h3>
             <h1>Neon Air Hockey</h1>
             <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 15px;">Local Table Battle</p>
             
@@ -223,7 +223,7 @@
         <div id="game-over" class="overlay hidden">
             <h1 id="winner-title">PLAYER 1 WINS</h1>
             <h2 id="final-score">7 - 4</h2>
-            <h3>Ojas Kale Recomends To</h2>
+            <h3>Ojas Kale Recommends To</h3>
             <br />
             <button class="menu-btn" id="btn-rematch">Play Another Round?</button>
         </div>
@@ -258,11 +258,11 @@
         const goalWidth = 160;
         const goalYOffset = 4;
 
-        // Target coordinates mapped to tracking nodes
+        // Target tracking coordinates
         let p1TargetX = 250; let p1TargetY = 650;
         let p2TargetX = 250; let p2TargetY = 100;
 
-        // Hardware pointer capture IDs
+        // Pointer IDs
         let p1PointerId = null;
         let p2PointerId = null;
 
@@ -388,8 +388,11 @@
                 const leftWall = rinkPadding + this.radius; const rightWall = canvas.width - rinkPadding - this.radius;
                 const topWall = rinkPadding + this.radius; const bottomWall = canvas.height - rinkPadding - this.radius;
 
-                if (this.x < leftWall) { this.x = leftWall; this.vx *= -1; playSoundWall(); }
-                else if (this.x > rightWall) { this.x = rightWall; this.vx *= -1; playSoundWall(); }
+                if (this.x < leftWall) {
+                    this.x = leftWall; this.vx *= -1; playSoundWall();
+                } else if (this.x > rightWall) {
+                    this.x = rightWall; this.vx *= -1; playSoundWall();
+                }
 
                 const goalLeftX = canvas.width / 2 - goalWidth / 2; const goalRightX = canvas.width / 2 + goalWidth / 2;
 
@@ -413,7 +416,6 @@
             draw() { ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = this.color; ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
         }
 
-        // CORRECTED: Instantiating objects using strict canvas metrics matching rendering coordinates
         const player1 = new Mallet(250, 650, 22, '#00f2fe', false);
         const player2 = new Mallet(250, 100, 22, '#ff007f', true);
         const puck = new Puck(250, 375, 14, '#fff');
@@ -441,10 +443,16 @@
 
         canvas.addEventListener('pointermove', (e) => {
             let coords = translatePointerCoords(e);
-            if (e.pointerId === p1PointerId) {
+            // In 1P Mode, allow the primary mouse pointer or touch point to guide player 1 without locking IDs
+            if (gameMode === '1P') {
                 p1TargetX = coords.x; p1TargetY = coords.y;
-            } else if (e.pointerId === p2PointerId) {
-                p2TargetX = coords.x; p2TargetY = coords.y;
+                p1PointerId = e.pointerId;
+            } else {
+                if (e.pointerId === p1PointerId) {
+                    p1TargetX = coords.x; p1TargetY = coords.y;
+                } else if (e.pointerId === p2PointerId) {
+                    p2TargetX = coords.x; p2TargetY = coords.y;
+                }
             }
         });
 
@@ -498,7 +506,8 @@
                 let futureFrames = 10;
                 let predictedX = puck.x + (puck.vx * futureFrames);
                 let predictedY = puck.y + (puck.vy * futureFrames);
-                const leftBound = rinkPadding + puck.radius; const rightBound = canvas.width - rinkBound - puck.radius;
+                const leftBound = rinkPadding + puck.radius; 
+                const rightBound = canvas.width - rinkPadding - puck.radius; // FIXED TYPO: changed rinkBound to rinkPadding
 
                 while (predictedX < leftBound || predictedX > rightBound) {
                     if (predictedX < leftBound) predictedX = leftBound + (leftBound - predictedX);
@@ -591,7 +600,7 @@
 
             if (gameState === 'PLAYING') {
                 // --- PLAYER 1 (BOTTOM MALLET) ---
-                if (p1PointerId !== null) {
+                if (p1PointerId !== null || gameMode === '1P') {
                     player1.trackTo(p1TargetX, p1TargetY);
                 } else if (gameMode === '2P') {
                     let p1VX = 0; let p1VY = 0;
@@ -607,7 +616,7 @@
                 // --- PLAYER 2 (TOP MALLET) ---
                 if (gameMode === '2P') {
                     if (p2PointerId !== null) {
-                        player2.trackTo(p2TargetX, p2TargetY);
+                        player2.trackTo(p2X, p2Y);
                     } else {
                         let p2VX = 0; let p2VY = 0;
                         if (keys['w'] || keys['W']) p2VY = -player2.speed;
@@ -626,7 +635,6 @@
                 handleMalletPuckCollision(player2);
             }
 
-            // Both paddles render on screen continuously
             player1.draw(); 
             player2.draw();
             
