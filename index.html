@@ -2,44 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Ojas Kale's - Arcade Neon Air Hockey</title>
-    <!-- Dynamic Favicon Placeholder Link -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcade Neon Air Hockey</title>
     <link id="dynamic-favicon" rel="icon" type="image/png" href="">
     <style>
-        /* Reset and Base Styles */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevents mobile phone from bouncing/scrolling while playing */
         }
         body {
             background-color: #0d0d13;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #fff;
             min-height: 100vh;
+            min-height: -webkit-fill-available; /* Fix for mobile Safari address bars */
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            padding: 10px;
         }
 
-        /* Game Container Layout */
         #game-container {
             position: relative;
-            width: 500px;
-            height: 750px;
+            /* The container now adapts dynamically to the screen size */
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            max-height: 750px;
+            aspect-ratio: 2 / 3; /* Keeps the classic 500x750 air hockey proportion */
             box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
             border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         canvas {
             background-color: #14151f;
             border-radius: 10px;
+            width: 100%;
+            height: 100%;
             display: block;
         }
 
-        /* Overlay Screens (Menu & Game Over) */
         .overlay {
             position: absolute;
             top: 0;
@@ -51,22 +61,19 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 30px;
+            padding: 20px;
             border-radius: 10px;
             z-index: 10;
-            transition: opacity 0.3s ease;
+            overflow-y: auto; /* Allows menu scrolling on tiny older phones */
         }
 
         .hidden {
             display: none !important;
-            opacity: 0;
-            pointer-events: none;
         }
 
-        /* Typography & Glowing Text */
         h1 {
-            font-size: 2.8rem;
-            margin-bottom: 10px;
+            font-size: calc(1.8rem + 1vw);
+            margin-bottom: 5px;
             text-transform: uppercase;
             letter-spacing: 2px;
             color: #00f2fe;
@@ -75,55 +82,54 @@
         }
 
         h2 {
-            font-size: 2rem;
-            margin-bottom: 20px;
+            font-size: calc(1.3rem + 1vw);
+            margin-bottom: 15px;
             color: #ff007f;
             text-shadow: 0 0 15px rgba(255, 0, 127, 0.6);
         }
 
-        /* Instruction Cards */
         .instructions-panel {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(0, 242, 254, 0.2);
             border-radius: 8px;
-            padding: 15px 20px;
-            margin-bottom: 25px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
             width: 100%;
+            max-width: 360px;
         }
 
         .instructions-panel h3 {
             color: #fff;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
+            font-size: 1rem;
+            margin-bottom: 8px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 5px;
+            padding-bottom: 3px;
         }
 
         .instructions-panel p {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #cccccc;
-            margin-bottom: 6px;
-            line-height: 1.4;
+            margin-bottom: 4px;
+            line-height: 1.3;
         }
 
-        /* Buttons & Custom Selectors */
         .menu-btn {
             background: transparent;
             border: 2px solid #00f2fe;
             color: #00f2fe;
-            padding: 12px 30px;
-            font-size: 1.1rem;
+            padding: 10px 25px;
+            font-size: 1rem;
             font-weight: bold;
             text-transform: uppercase;
             border-radius: 25px;
             cursor: pointer;
-            margin-bottom: 15px;
-            width: 80%;
+            margin-bottom: 12px;
+            width: 100%;
+            max-width: 360px;
             transition: all 0.2s ease;
-            box-shadow: 0 0 10px rgba(0, 242, 254, 0.1);
         }
 
-        .menu-btn:hover {
+        .menu-btn:hover, .menu-btn:active {
             background: #00f2fe;
             color: #0d0d13;
             box-shadow: 0 0 20px rgba(0, 242, 254, 0.5);
@@ -132,26 +138,26 @@
         .menu-btn.secondary {
             border-color: #ff007f;
             color: #ff007f;
-            box-shadow: 0 0 10px rgba(255, 0, 127, 0.1);
         }
 
-        .menu-btn.secondary:hover {
+        .menu-btn.secondary:hover, .menu-btn.secondary:active {
             background: #ff007f;
             color: #0d0d13;
             box-shadow: 0 0 20px rgba(255, 0, 127, 0.5);
         }
 
         .difficulty-container {
-            width: 80%;
-            margin-bottom: 25px;
+            width: 100%;
+            max-width: 360px;
+            margin-bottom: 15px;
             text-align: center;
         }
 
         .difficulty-label {
             display: block;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #aaa;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             text-transform: uppercase;
         }
 
@@ -166,15 +172,10 @@
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(0, 242, 254, 0.3);
             color: #fff;
-            padding: 8px 0;
+            padding: 6px 0;
             font-weight: bold;
             cursor: pointer;
             border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .diff-btn:hover {
-            background: rgba(0, 242, 254, 0.2);
         }
 
         .diff-btn.active {
@@ -188,21 +189,20 @@
 <body>
 
     <div id="game-container">
-        <!-- Canvas Viewport -->
+        <!-- Master internal logic dimension remains 500x750; browser handles scaling scaling visually -->
         <canvas id="gameCanvas" width="500" height="750"></canvas>
 
         <!-- Main Menu Overlay -->
         <div id="main-menu" class="overlay">
-            <h3>Welcome to Ojas Kale's</h3>
             <h1>Neon Air Hockey</h1>
-            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 20px;">Local Table Battle</p>
+            <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 15px;">Local Table Battle</p>
             
             <div class="instructions-panel">
                 <h3>Game Controls</h3>
-                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 10px;">⚡ 1-Player Mode: Move your MOUSE to control the bottom mallet!</p>
-                <p><strong>2-Player Local Mode:</strong></p>
-                <p>• Player 1 (Bottom): Arrow Keys</p>
-                <p>• Player 2 (Top): W, A, S, D Keys</p>
+                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">📱 Mobile: Drag your finger anywhere on your half of the screen!</p>
+                <p style="color: #00f2fe; font-weight: bold; margin-bottom: 8px;">💻 Desktop 1P: Move your MOUSE.</p>
+                <p><strong>Desktop 2P (Local Keyboard):</strong></p>
+                <p>• P1 (Bottom): Arrow Keys | P2 (Top): WASD</p>
             </div>
 
             <div class="difficulty-container">
@@ -216,7 +216,7 @@
                 </div>
             </div>
 
-            <button class="menu-btn" id="btn-1p">1 Player (Use Mouse)</button>
+            <button class="menu-btn" id="btn-1p">1 Player (Touch/Mouse)</button>
             <button class="menu-btn secondary" id="btn-2p">2 Players (Keyboard)</button>
         </div>
 
@@ -257,9 +257,9 @@
         const goalWidth = 160;
         const goalYOffset = 4;
 
-        // Mouse Coordinate Captures
-        let mouseX = canvas.width / 2;
-        let mouseY = canvas.height - 80;
+        // Virtual Coordinate Inputs
+        let virtualInputX = 250;
+        let virtualInputY = 650;
 
         // --- AUDIO SYNTHESIS ENGINE ---
         let audioCtx = null;
@@ -323,9 +323,7 @@
                 this.clampBoundaries();
             }
 
-            // Move mallet directly to a coordinate (Used for Mouse Tracking)
             moveTo(targetX, targetY) {
-                // Velocity is calculated as the difference between where it was and where it is going
                 this.vx = targetX - this.x;
                 this.vy = targetY - this.y;
                 this.x = targetX;
@@ -408,7 +406,19 @@
         const player2 = new Mallet(canvas.width / 2, 80, 22, '#ff007f', true);
         const puck = new Puck(canvas.width / 2, canvas.height / 2, 14, '#fff');
 
-        // --- LISTENER LISTENERS REGISTER ---
+        // --- INPUT NORMALIZATION HELPER ---
+        // Converts a screen space interaction pixel into our internal 500x750 virtual grid coordinate system
+        function handleInteractionInput(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            // Scale factors mapping physical screen dimensions directly onto our virtual grid
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            virtualInputX = (clientX - rect.left) * scaleX;
+            virtualInputY = (clientY - rect.top) * scaleY;
+        }
+
+        // --- HARDWARE INPUT EVENT LISTENERS ---
         const keys = {};
         window.addEventListener('keydown', (e) => {
             initAudio(); keys[e.key] = true;
@@ -416,13 +426,24 @@
         });
         window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-        // Mouse Motion Tracking Listener
+        // Mouse Listener
         canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            // Calculate exact mouse position relative to canvas coordinate space dimensions
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
+            handleInteractionInput(e.clientX, e.clientY);
         });
+
+        // Responsive Touch Listeners (Mobile & Tablet)
+        canvas.addEventListener('touchstart', (e) => {
+            initAudio();
+            if (e.touches.length > 0) {
+                handleInteractionInput(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                handleInteractionInput(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
 
         // --- AI LOGIC ENGINE ---
         const aiProfiles = {
@@ -507,6 +528,7 @@
         function resetGameSession() {
             player1Score = 0; player2Score = 0; particles = []; stuckFramesCounter = 0; isAIStuckBackingOff = false;
             player1.reset(); player2.reset(); puck.reset(Math.random() > 0.5 ? 1 : -1);
+            virtualInputX = canvas.width / 2; virtualInputY = canvas.height - 80;
         }
 
         function drawRink() {
@@ -527,12 +549,10 @@
             drawRink();
 
             if (gameState === 'PLAYING') {
-                // --- PLAYER 1 CONTROL SWITCH LOGIC ---
                 if (gameMode === '1P') {
-                    // Smooth tracking using Mouse Input
-                    player1.moveTo(mouseX, mouseY);
+                    // Touch screen or Mouse pointer mapping coordinates
+                    player1.moveTo(virtualInputX, virtualInputY);
                 } else {
-                    // Standard tracking using Keyboard Arrow Inputs
                     let p1VX = 0; let p1VY = 0;
                     if (keys['ArrowUp'])    p1VY = -player1.speed;
                     if (keys['ArrowDown'])  p1VY = player1.speed;
@@ -541,7 +561,6 @@
                     player1.update(p1VX, p1VY);
                 }
 
-                // --- PLAYER 2 CONTROL SWITCH LOGIC ---
                 let p2VX = 0; let p2VY = 0;
                 if (gameMode === '2P') {
                     if (keys['w'] || keys['W']) p2VY = -player2.speed;
