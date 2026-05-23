@@ -616,7 +616,7 @@
                 // --- PLAYER 2 (TOP MALLET) ---
                 if (gameMode === '2P') {
                     if (p2PointerId !== null) {
-                        player2.trackTo(p2X, p2Y);
+                        player2.trackTo(p2TargetX, p2TargetY);
                     } else {
                         let p2VX = 0; let p2VY = 0;
                         if (keys['w'] || keys['W']) p2VY = -player2.speed;
